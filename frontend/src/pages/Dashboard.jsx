@@ -8,6 +8,7 @@ import QuickLog from "../components/QuickLog.jsx";
 import WeeklyChart from "../components/WeeklyChart.jsx";
 import ScoreCard from "../components/ScoreCard.jsx";
 import RecentEntries from "../components/RecentEntries.jsx";
+import LoadingScreen from "../components/LoadingScreen.jsx";
 
 const METRICS = ["walk", "water", "sleep"];
 
@@ -47,7 +48,7 @@ export default function Dashboard() {
     await refresh();
   }
 
-  if (loading || !overview) return <div className="page-loading">Loading Sinew…</div>;
+  if (loading || !overview) return <LoadingScreen />;
 
   const metricHistory = overview.history.filter((h) => h.type === activeMetric);
   const firstName = user?.name?.split(" ")[0] || "there";

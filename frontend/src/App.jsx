@@ -4,10 +4,11 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Goals from "./pages/Goals.jsx";
+import LoadingScreen from "./components/LoadingScreen.jsx";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="page-loading">Loading Sinew…</div>;
+  if (loading) return <LoadingScreen label="Checking your session…" />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
