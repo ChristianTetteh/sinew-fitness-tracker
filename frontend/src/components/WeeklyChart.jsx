@@ -26,22 +26,22 @@ export default function WeeklyChart({ metric, data }) {
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-          <CartesianGrid stroke="#2A241C" vertical={false} />
+          <CartesianGrid stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="day"
-            stroke="#8A8377"
+            stroke="var(--muted)"
             tickLine={false}
             axisLine={false}
             fontSize={13}
           />
-          <YAxis stroke="#8A8377" tickLine={false} axisLine={false} fontSize={12} />
+          <YAxis stroke="var(--muted)" tickLine={false} axisLine={false} fontSize={12} />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            cursor={{ fill: "var(--cursor-highlight)" }}
             contentStyle={{
-              background: "#1F1B16",
-              border: "1px solid #2A241C",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
               borderRadius: 8,
-              color: "#F5F1EA",
+              color: "var(--text)",
             }}
             formatter={(v) => [`${v} ${UNITS[metric]}`, "Total"]}
           />

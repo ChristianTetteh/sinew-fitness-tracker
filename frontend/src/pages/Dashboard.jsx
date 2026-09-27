@@ -59,7 +59,7 @@ export default function Dashboard() {
 
       <main className="main">
         <header className="main-header">
-          <h1>Good to see you, {firstName} 👋</h1>
+          <h1>Good to see you, {firstName}</h1>
           <p className="main-sub">{fullDateLabel()}</p>
         </header>
 
