@@ -1,26 +1,11 @@
 const express = require("express");
 const pool = require("../db");
 const requireAuth = require("../middleware/authMiddleware");
+const { validateValue } = require("../lib/validation");
+const { computeScore, computeStreak, computeInsight } = require("../lib/scoring");
 
 const router = express.Router();
 const VALID_TYPES = ["walk", "water", "sleep"];
-
-// Sane real-world bounds per metric, enforced both here and in the UI.
-const LIMITS = {
-  walk: { min: 1, max: 100000, label: "Steps must be between 1 and 100,000." },
-  water: { min: 1, max: 10000, label: "Water must be between 1 and 10,000 ml." },
-  sleep: { min: 0.25, max: 24, label: "Sleep must be between 0.25 and 24 hours." },
-};
-
-function validateValue(type, value) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return { error: "Value must be a number." };
-  const limit = LIMITS[type];
-  if (numericValue < limit.min || numericValue > limit.max) {
-    return { error: limit.label };
-  }
-  return { numericValue };
-}
 
 router.use(requireAuth);
 
@@ -178,10 +163,12 @@ router.get("/summary/overview", async (req, res) => {
     const today = { walk: 0, water: 0, sleep: 0 };
     todayResult.rows.forEach((row) => (today[row.type] = row.total));
 
-    // Score: average of each metric's goal-completion %, capped at 100.
-    const goalFor = { walk: goals.daily_steps_goal, water: goals.daily_water_goal_ml, sleep: Number(goals.daily_sleep_goal_hours) };
-    const pct = (type) => Math.min(100, Math.round((today[type] / goalFor[type]) * 100));
-    const score = Math.round((pct("walk") + pct("water") + pct("sleep")) / 3);
+    const goalFor = {
+      walk: goals.daily_steps_goal,
+      water: goals.daily_water_goal_ml,
+      sleep: Number(goals.daily_sleep_goal_hours),
+    };
+    const score = computeScore(today, goalFor);
 
     // Streak: consecutive days (ending today or yesterday) with at least one entry.
     const streakDaysResult = await pool.query(
@@ -191,25 +178,7 @@ router.get("/summary/overview", async (req, res) => {
       [req.userId]
     );
     const loggedDates = streakDaysResult.rows.map((r) => r.logged_at.toISOString().slice(0, 10));
-    let streak = 0;
-    if (loggedDates.length > 0) {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      const mostRecent = new Date(loggedDates[0]);
-      const gapFromToday = Math.round((new Date(todayStr) - mostRecent) / oneDayMs);
-      if (gapFromToday <= 1) {
-        streak = 1;
-        for (let i = 1; i < loggedDates.length; i++) {
-          const prev = new Date(loggedDates[i - 1]);
-          const curr = new Date(loggedDates[i]);
-          if (Math.round((prev - curr) / oneDayMs) === 1) {
-            streak++;
-          } else {
-            break;
-          }
-        }
-      }
-    }
+    const streak = computeStreak(loggedDates);
 
     // Insight: compare this week's daily average per metric to the prior week's.
     const weekAvgResult = await pool.query(
@@ -222,21 +191,7 @@ router.get("/summary/overview", async (req, res) => {
        GROUP BY type`,
       [req.userId]
     );
-    const LABELS = { walk: "steps", water: "water intake", sleep: "sleep" };
-    let insight = "Keep logging daily to unlock personalized insights.";
-    let bestChange = 0;
-    weekAvgResult.rows.forEach((row) => {
-      const thisWeek = Number(row.this_week) || 0;
-      const lastWeek = Number(row.last_week) || 0;
-      if (lastWeek > 0 && thisWeek > 0) {
-        const change = ((thisWeek - lastWeek) / lastWeek) * 100;
-        if (Math.abs(change) > Math.abs(bestChange)) {
-          bestChange = change;
-          const direction = change >= 0 ? "up" : "down";
-          insight = `Your ${LABELS[row.type]} is ${direction} ${Math.abs(Math.round(change))}% compared to last week.`;
-        }
-      }
-    });
+    const insight = computeInsight(weekAvgResult.rows);
 
     res.json({
       today,

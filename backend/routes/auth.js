@@ -1,16 +1,30 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 const pool = require("../db");
 const requireAuth = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
+// Blunt but effective brute-force protection on the auth endpoints. Skipped
+// entirely in tests so the suite's own requests never trip it.
+const authLimiter =
+  process.env.NODE_ENV === "test"
+    ? (req, res, next) => next()
+    : rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 20,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: { error: "Too many attempts. Please try again in a few minutes." },
+      });
+
 function signToken(userId) {
   return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "30d" });
 }
 
-router.post("/signup", async (req, res) => {
+router.post("/signup", authLimiter, async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
@@ -43,7 +57,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required." });
