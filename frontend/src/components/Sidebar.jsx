@@ -17,14 +17,20 @@ export default function Sidebar() {
           <span />
           <span />
         </button>
-        <span className="mobile-mark">SINEW</span>
+        <span className="mobile-mark">
+          <img src="/logo.svg" alt="" width="24" height="24" />
+          SINEW
+        </span>
       </div>
 
       {open && <div className="rail-backdrop" onClick={() => setOpen(false)} />}
 
       <aside className={`rail ${open ? "is-open" : ""}`}>
         <div className="rail-top">
-          <div className="rail-mark">SINEW</div>
+          <div className="rail-mark">
+            <img src="/logo.svg" alt="" width="28" height="28" />
+            SINEW
+          </div>
           <button className="rail-close" onClick={() => setOpen(false)} aria-label="Close menu">
             ✕
           </button>

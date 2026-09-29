@@ -28,7 +28,10 @@ export default function Signup() {
   return (
     <div className="auth-screen">
       <div className="auth-card">
-        <div className="auth-mark">SINEW</div>
+        <div className="auth-mark">
+          <img src="/logo.svg" alt="" width="36" height="36" />
+          SINEW
+        </div>
         <p className="auth-tagline">Track effort. Build strength.</p>
 
         <form onSubmit={handleSubmit} className="auth-form">

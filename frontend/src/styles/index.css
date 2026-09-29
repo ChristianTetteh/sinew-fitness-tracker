@@ -68,12 +68,17 @@ button, input {
 }
 
 .auth-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-family: "Bebas Neue", sans-serif;
   font-size: 34px;
   letter-spacing: 0.08em;
   color: var(--ember);
   margin-bottom: 4px;
 }
+
+.auth-mark img { border-radius: 8px; }
 
 .auth-tagline {
   color: var(--muted);
@@ -203,11 +208,16 @@ button, input {
 }
 
 .rail-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: "Bebas Neue", sans-serif;
   font-size: 26px;
   letter-spacing: 0.08em;
   color: var(--ember);
 }
+
+.rail-mark img { border-radius: 6px; }
 
 .theme-toggle {
   background: var(--surface-raised);
@@ -456,11 +466,16 @@ button, input {
   }
 
   .mobile-mark {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-family: "Bebas Neue", sans-serif;
     font-size: 20px;
     letter-spacing: 0.08em;
     color: var(--ember);
   }
+
+  .mobile-mark img { border-radius: 5px; }
 
   .hamburger-btn {
     background: none;
