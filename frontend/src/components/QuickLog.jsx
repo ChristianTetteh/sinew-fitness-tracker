@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 const TYPES = [
-  { key: "walk", label: "Walk", unit: "steps", placeholder: "e.g. 4500", min: 1, max: 100000 },
+  { key: "walk", label: "Walk", unit: "steps", placeholder: "e.g. 4500", min: 1, max: 50000 },
   { key: "water", label: "Water", unit: "ml", placeholder: "e.g. 500", min: 1, max: 10000 },
   { key: "sleep", label: "Sleep", unit: "hours", placeholder: "e.g. 7.5", min: 0.25, max: 24 },
 ];

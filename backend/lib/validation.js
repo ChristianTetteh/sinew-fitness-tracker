@@ -1,18 +1,15 @@
 // Sane real-world bounds per metric, enforced both here (API) and in the frontend UI.
 const LIMITS = {
-  walk: { min: 1, max: 100000, label: "Steps must be between 1 and 100,000." },
+  walk: { min: 1, max: 50000, label: "Steps must be between 1 and 50,000." },
   water: { min: 1, max: 10000, label: "Water must be between 1 and 10,000 ml." },
   sleep: { min: 0.25, max: 24, label: "Sleep must be between 0.25 and 24 hours." },
 };
 
 // Daily *cumulative* bounds — the most a metric may total across all of a
 // user's entries for a single day, regardless of how many separate entries
-// that's split across. Water and sleep have a hard physical/safety ceiling a
-// person cannot legitimately exceed in one day, so those are capped. Walking
-// further than the single-entry max is healthy and plausible (e.g. a long
-// hike logged in two entries), so `walk` has no daily cap — only the existing
-// per-entry max applies.
+// that's split across.
 const DAILY_LIMITS = {
+  walk: { max: 50000, label: "That would put today's total steps over 50,000, which is above the daily cap." },
   water: { max: 10000, label: "That would put today's total water intake over 10,000 ml, which isn't a safe daily amount." },
   sleep: { max: 24, label: "That would put today's total sleep over 24 hours, which isn't possible in a single day." },
 };

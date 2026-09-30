@@ -336,10 +336,12 @@ button:active { transform: scale(0.97); }
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .quick-log-input-row input {
-  flex: 1;
+  flex: 1 1 120px;
+  min-width: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -349,7 +351,9 @@ button:active { transform: scale(0.97); }
 }
 .quick-log-input-row input:focus { border-color: var(--ember); }
 
-.quick-log-unit { color: var(--muted); font-size: 13px; min-width: 40px; }
+.quick-log-unit { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+
+.quick-log-input-row .btn-primary { flex-shrink: 0; }
 
 /* ---------- Stat cards ---------- */
 
@@ -543,6 +547,9 @@ button:active { transform: scale(0.97); }
 
   .recent-item { font-size: var(--fs-sm); }
   .recent-type { width: 52px; }
+
+  .quick-log-input-row input { flex-basis: 100%; }
+  .quick-log-input-row .btn-primary { flex: 1; }
 
   .mobile-topbar {
     display: flex;
