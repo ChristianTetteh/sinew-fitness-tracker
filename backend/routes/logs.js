@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const requireAuth = require("../middleware/authMiddleware");
-const { validateValue } = require("../lib/validation");
+const { validateValue, validateDailyTotal } = require("../lib/validation");
 const { computeScore, computeStreak, computeInsight } = require("../lib/scoring");
 
 const router = express.Router();
@@ -22,6 +22,21 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    // Cumulative check: even though this single entry is within bounds, it
+    // must not push the day's total (across all of that day's entries for
+    // this type) past the daily cap. Only applies to types with a daily cap
+    // (water, sleep) — walk has none, so this is a no-op for it.
+    const totalResult = await pool.query(
+      `SELECT COALESCE(SUM(value), 0)::float AS total
+       FROM logs
+       WHERE user_id = $1 AND type = $2 AND logged_at = COALESCE($3, CURRENT_DATE)`,
+      [req.userId, type, logged_at || null]
+    );
+    const dailyError = validateDailyTotal(type, totalResult.rows[0].total, numericValue).error;
+    if (dailyError) {
+      return res.status(400).json({ error: dailyError });
+    }
+
     const result = await pool.query(
       `INSERT INTO logs (user_id, type, value, logged_at)
        VALUES ($1, $2, $3, COALESCE($4, CURRENT_DATE))
@@ -67,16 +82,31 @@ router.put("/:id", async (req, res) => {
   const { value } = req.body;
   try {
     const existing = await pool.query(
-      "SELECT type FROM logs WHERE id = $1 AND user_id = $2",
+      "SELECT type, logged_at FROM logs WHERE id = $1 AND user_id = $2",
       [req.params.id, req.userId]
     );
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: "Entry not found." });
     }
-    const { numericValue, error } = validateValue(existing.rows[0].type, value);
+    const { type: existingType, logged_at: existingDate } = existing.rows[0];
+    const { numericValue, error } = validateValue(existingType, value);
     if (error) {
       return res.status(400).json({ error });
     }
+
+    // Same cumulative check as create, but excluding this entry's own
+    // current value from the existing total (it's about to be replaced).
+    const totalResult = await pool.query(
+      `SELECT COALESCE(SUM(value), 0)::float AS total
+       FROM logs
+       WHERE user_id = $1 AND type = $2 AND logged_at = $3 AND id != $4`,
+      [req.userId, existingType, existingDate, req.params.id]
+    );
+    const dailyError = validateDailyTotal(existingType, totalResult.rows[0].total, numericValue).error;
+    if (dailyError) {
+      return res.status(400).json({ error: dailyError });
+    }
+
     const result = await pool.query(
       "UPDATE logs SET value = $1 WHERE id = $2 AND user_id = $3 RETURNING id, type, value, logged_at",
       [numericValue, req.params.id, req.userId]

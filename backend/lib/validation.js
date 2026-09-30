@@ -5,6 +5,18 @@ const LIMITS = {
   sleep: { min: 0.25, max: 24, label: "Sleep must be between 0.25 and 24 hours." },
 };
 
+// Daily *cumulative* bounds — the most a metric may total across all of a
+// user's entries for a single day, regardless of how many separate entries
+// that's split across. Water and sleep have a hard physical/safety ceiling a
+// person cannot legitimately exceed in one day, so those are capped. Walking
+// further than the single-entry max is healthy and plausible (e.g. a long
+// hike logged in two entries), so `walk` has no daily cap — only the existing
+// per-entry max applies.
+const DAILY_LIMITS = {
+  water: { max: 10000, label: "That would put today's total water intake over 10,000 ml, which isn't a safe daily amount." },
+  sleep: { max: 24, label: "That would put today's total sleep over 24 hours, which isn't possible in a single day." },
+};
+
 function validateValue(type, value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return { error: "Value must be a number." };
@@ -15,4 +27,17 @@ function validateValue(type, value) {
   return { numericValue };
 }
 
-module.exports = { validateValue, LIMITS };
+// Checks a new/edited value against the running total already logged for
+// that user/type/day. `existingTotal` is the sum of the *other* entries for
+// that day (the caller is responsible for excluding the entry being edited).
+function validateDailyTotal(type, existingTotal, numericValue) {
+  const dailyLimit = DAILY_LIMITS[type];
+  if (!dailyLimit) return {}; // no cumulative cap for this type (e.g. walk)
+  const projectedTotal = (existingTotal || 0) + numericValue;
+  if (projectedTotal > dailyLimit.max) {
+    return { error: dailyLimit.label };
+  }
+  return {};
+}
+
+module.exports = { validateValue, validateDailyTotal, LIMITS, DAILY_LIMITS };
