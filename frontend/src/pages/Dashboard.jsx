@@ -67,9 +67,11 @@ export default function Dashboard() {
 
         <QuickLog onLog={handleLog} />
 
+        <h2 className="section-title">Today</h2>
         <section className="stat-grid">
           <StatCard
             label="Steps"
+            metric="walk"
             value={overview.today.walk || 0}
             unit="steps"
             goal={overview.goals.walk}
@@ -77,6 +79,7 @@ export default function Dashboard() {
           />
           <StatCard
             label="Water"
+            metric="water"
             value={overview.today.water || 0}
             unit="ml"
             goal={overview.goals.water}
@@ -84,6 +87,7 @@ export default function Dashboard() {
           />
           <StatCard
             label="Sleep"
+            metric="sleep"
             value={overview.today.sleep || 0}
             unit="hrs"
             goal={overview.goals.sleep}
@@ -92,6 +96,7 @@ export default function Dashboard() {
         </section>
 
         <section className="chart-section">
+          <h2 className="section-title">This week</h2>
           <div className="metric-tabs">
             {METRICS.map((m) => (
               <button
@@ -107,7 +112,7 @@ export default function Dashboard() {
         </section>
 
         <section className="recent-section">
-          <span className="stat-label">Recent entries</span>
+          <h2 className="section-title">Recent entries</h2>
           <RecentEntries logs={recentLogs} onDelete={handleDelete} onEdit={handleEdit} />
         </section>
       </main>
