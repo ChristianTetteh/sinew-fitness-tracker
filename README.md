@@ -4,7 +4,7 @@ A full-stack fitness tracker built for the Full Stack Developer intern task ("Fi
 Tracking Web App"), then taken well past the minimum brief: **React + Node/Express +
 PostgreSQL**, deployed, tested, and hardened.
 
-**Live demo:** https://sinew-frontend.onrender.com
+**Live demo:** https://sinew-fitness-tracker-7xgk.vercel.app
 **API:** https://sinew-backend.onrender.com
 
 ## What's included
@@ -21,8 +21,12 @@ PostgreSQL**, deployed, tested, and hardened.
 - **Streaks** — consecutive days logged, with a flame counter
 - **Insights** — a plain-language callout comparing this week's average to last week's
   (e.g. "Your steps are up 18% compared to last week"), computed server-side from real data
-- **Real validation** — sane bounds per metric (e.g. sleep 0.25–24 hrs), enforced on both
-  the client and the API, so bad data (like a 5,000-hour sleep entry) can't get in
+- **Real validation** — sane per-entry bounds for every metric (walk ≤ 50,000 steps, water
+  ≤ 10,000 ml, sleep ≤ 24 hrs), enforced on both the client and the API, so bad data (like a
+  5,000-hour sleep entry) can't get in
+- **Daily cumulative caps** — bounds apply per entry *and* per day: logging water or sleep
+  close to the max twice in one day is rejected once the day's total would cross the cap
+  (10,000 ml water / 24 hrs sleep / 50,000 steps per day), not just each entry in isolation
 - **Edit, not just delete** — fix a mis-typed entry in place
 - **Human-readable dates** — "Today" / "Yesterday" / "Friday, Sep 25" instead of raw ISO
   timestamps, with entries grouped by day
@@ -31,8 +35,9 @@ PostgreSQL**, deployed, tested, and hardened.
   below 760px, with horizontally-scrollable stat/score cards instead of a cramped stack
 - **On-brand loading state** — an animated dumbbell bicep-curl (SVG/SMIL, no images) instead
   of a spinner
-- **Automated tests** — 36 Jest + Supertest tests covering validation, the score/streak/
-  insight logic, and the auth/logs routes (see [Testing](#testing))
+- **Automated tests** — 43 Jest + Supertest tests covering validation (including the daily
+  cumulative caps), the score/streak/insight logic, and the auth/logs routes (see
+  [Testing](#testing))
 - **Security hardening** — Helmet security headers, rate limiting on auth endpoints, and
   ownership checks on every log mutation (a user can only edit/delete their own entries)
 
@@ -81,7 +86,7 @@ cd backend
 npm test
 ```
 
-36 tests across 4 suites, all running against mocked dependencies (no live database or
+43 tests across 4 suites, all running against mocked dependencies (no live database or
 network calls needed):
 
 - **`lib/scoring.js`** — pure functions for the SINEW Score, streak, and insight logic,
@@ -111,20 +116,26 @@ Signup/login are rate-limited (20 requests / 15 min / IP) to blunt brute-force a
 
 ## Deployment
 
-Both halves are deployed on Render:
+The app is split across three managed services:
 
-**Database:** Render Postgres (free tier).
+**Database:** [Supabase](https://supabase.com) (managed PostgreSQL, session pooler connection).
 
-**Backend (Render Web Service):**
+**Backend — Render Web Service:**
 1. New → Web Service → point at the repo, build/start commands `cd backend && npm install` / `cd backend && npm start`
-2. Environment variables: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PGSSL`
+2. Environment variables: `DATABASE_URL` (Supabase's pooler connection string), `JWT_SECRET`, `CORS_ORIGIN` (the deployed frontend's origin), `PGSSL=true`
 3. `npm start` runs `node migrate.js && node server.js`, so the schema is applied on every boot (idempotent — safe to leave permanently)
 
-**Frontend (Render Static Site):**
-1. New → Static Site → root build command `cd frontend && npm install && npm run build`, publish path `frontend/dist`
+**Frontend — Vercel:**
+1. Import the repo → set the project's **Root Directory** to `frontend` (Vercel auto-detects Vite)
 2. Environment variable: `VITE_API_URL` = `https://<your-backend>.onrender.com/api`
+3. `frontend/vercel.json` adds the standard SPA rewrite (`/(.*) → /index.html`) so client-side
+   routes like `/login` and `/goals` work on a direct visit or page refresh, not just when
+   reached by clicking through the app — without it, Vercel's static file server 404s on any
+   path it doesn't have a literal file for.
 
-(Vercel works too if you'd rather split them — the frontend is a standard Vite/React static build with no server-side requirements.)
+(Render's Static Site product works as an alternative to Vercel for the frontend — same Vite
+build, same publish path `frontend/dist` — but needs an equivalent rewrite/fallback rule
+configured for the same reason.)
 
 ## Notes for extending it
 
