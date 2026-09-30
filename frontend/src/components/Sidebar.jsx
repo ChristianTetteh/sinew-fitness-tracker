@@ -18,7 +18,7 @@ export default function Sidebar() {
           <span />
         </button>
         <span className="mobile-mark">
-          <img src="/logo.svg" alt="" width="24" height="24" />
+          <img src="/logo-mark.png" alt="" width="24" height="24" />
           SINEW
         </span>
       </div>
@@ -28,7 +28,7 @@ export default function Sidebar() {
       <aside className={`rail ${open ? "is-open" : ""}`}>
         <div className="rail-top">
           <div className="rail-mark">
-            <img src="/logo.svg" alt="" width="28" height="28" />
+            <img src="/logo-mark.png" alt="" width="28" height="28" />
             SINEW
           </div>
           <button className="rail-close" onClick={() => setOpen(false)} aria-label="Close menu">

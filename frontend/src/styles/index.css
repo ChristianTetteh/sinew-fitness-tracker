@@ -715,3 +715,79 @@ button, input {
   font-size: 13px;
   margin: 0;
 }
+
+/* ---------- First-open splash intro ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg);
+  animation: splash-fade-in 0.4s ease-out;
+}
+
+.splash-out {
+  animation: splash-fade-out 0.55s ease-in forwards;
+}
+
+.splash-glow {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.22), transparent 65%);
+  animation: splash-glow-pulse 1.8s ease-out infinite;
+}
+
+.splash-mark {
+  position: relative;
+  opacity: 0;
+  transform: scale(0.4) rotate(-8deg);
+  filter: drop-shadow(0 0 18px rgba(255, 107, 53, 0.45));
+  animation: splash-mark-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.splash-word {
+  position: relative;
+  font-size: 30px;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.splash-word-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes splash-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes splash-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes splash-mark-in {
+  0% { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+  70% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes splash-glow-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash, .splash-out, .splash-mark, .splash-glow { animation: none; }
+  .splash-mark { opacity: 1; transform: none; }
+}

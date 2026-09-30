@@ -28,7 +28,7 @@ export default function Login() {
     <div className="auth-screen">
       <div className="auth-card">
         <div className="auth-mark">
-          <img src="/logo.svg" alt="" width="36" height="36" />
+          <img src="/logo-mark.png" alt="" width="36" height="36" />
           SINEW
         </div>
         <p className="auth-tagline">Track effort. Build strength.</p>
