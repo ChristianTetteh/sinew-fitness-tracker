@@ -19,8 +19,10 @@ PostgreSQL**, deployed, tested, and hardened.
 - **SINEW Score** — a 0–100 same-day goal-completion score (explicitly labeled as *not* a
   health measure — it's a progress metric, not a diagnosis)
 - **Streaks** — consecutive days logged, with a flame counter
-- **Insights** — a plain-language callout comparing this week's average to last week's
-  (e.g. "Your steps are up 18% compared to last week"), computed server-side from real data
+- **Insights** — a plain-language callout comparing this week's average daily total to last
+  week's (e.g. "Your steps is up 18% compared to last week"), computed server-side from real
+  data: entries are summed per day, then averaged over the days that have entries, across two
+  exact 7-day windows
 - **Real validation** — sane per-entry bounds for every metric (walk ≤ 50,000 steps, water
   ≤ 10,000 ml, sleep ≤ 24 hrs), enforced on both the client and the API, so bad data (like a
   5,000-hour sleep entry) can't get in
@@ -35,9 +37,9 @@ PostgreSQL**, deployed, tested, and hardened.
   below 760px, with horizontally-scrollable stat/score cards instead of a cramped stack
 - **On-brand loading state** — an animated dumbbell bicep-curl (SVG/SMIL, no images) instead
   of a spinner
-- **Automated tests** — 43 Jest + Supertest tests covering validation (including the daily
-  cumulative caps), the score/streak/insight logic, and the auth/logs routes (see
-  [Testing](#testing))
+- **Automated tests** — 109 Jest + Supertest tests covering validation (including the daily
+  cumulative caps), the score/streak/insight logic, and the auth/logs routes, plus an opt-in
+  suite that runs against a real Postgres (see [Testing](#testing))
 - **Security hardening** — Helmet security headers, rate limiting on auth endpoints, and
   ownership checks on every log mutation (a user can only edit/delete their own entries)
 
@@ -86,7 +88,7 @@ cd backend
 npm test
 ```
 
-43 tests across 4 suites, all running against mocked dependencies (no live database or
+109 tests across 5 suites run against mocked dependencies by default (no live database or
 network calls needed):
 
 - **`lib/scoring.js`** — pure functions for the SINEW Score, streak, and insight logic,
@@ -97,6 +99,22 @@ network calls needed):
 - **`routes/auth.js`** and **`routes/logs.js`** — integration tests via Supertest against
   the real Express app, with the Postgres layer (`db.js`) mocked out, covering auth flows,
   goal updates, and log CRUD including ownership checks
+- **`server.js`** — JSON error handling (malformed body, unknown errors, unknown routes),
+  startup checks and CORS normalisation
+
+### Real-database integration tests (optional)
+
+`tests/integration.test.js` exercises the real SQL (daily-cap concurrency, date/number types,
+the insight query, schema idempotency and constraints) and is **skipped unless
+`TEST_DATABASE_URL` is set**:
+
+```bash
+createdb sinew_test
+TEST_DATABASE_URL=postgres://user:pass@127.0.0.1:5432/sinew_test npm test
+```
+
+It drops and recreates the `users` and `logs` tables in that database, so point it at a
+scratch database, never at real data.
 
 ## API overview
 
@@ -106,13 +124,24 @@ network calls needed):
 | POST   | `/api/auth/login` | Log in, returns JWT |
 | GET    | `/api/auth/me` | Current user (`Authorization: Bearer <token>`) |
 | PATCH  | `/api/auth/goals` | Update daily step/water/sleep goals |
-| POST   | `/api/logs` | Create an entry `{ type, value, logged_at? }`, validated per type |
-| GET    | `/api/logs?type=&days=` | List recent entries |
+| POST   | `/api/logs` | Create an entry `{ type, value, logged_at? }`, validated per type (`value` must be a JSON number, whole for steps; `logged_at` is `YYYY-MM-DD`, not in the future, at most 5 years old) |
+| GET    | `/api/logs?type=&days=` | List recent entries (`days` is an integer 1-365, default 30) |
 | PUT    | `/api/logs/:id` | Edit an entry's value |
 | DELETE | `/api/logs/:id` | Delete an entry |
 | GET    | `/api/logs/summary/overview?days=7` | Today's totals, goals, chart history, SINEW Score, streak, and insight — one call powers the whole dashboard |
 
-Signup/login are rate-limited (20 requests / 15 min / IP) to blunt brute-force attempts.
+Dates are returned as `YYYY-MM-DD` strings and numeric values as JSON numbers.
+
+Signup/login are rate-limited (20 failed requests / 15 min / IP; successful ones don't count) to
+blunt brute-force attempts.
+
+## Known limits
+
+- Daily caps and streaks roll over at **UTC midnight**, not the user's local midnight (the
+  server and database use UTC dates throughout).
+- Database SSL uses `rejectUnauthorized: false` (encrypted, but the server certificate isn't
+  verified) because managed poolers' certificates don't chain to the system store; pin the
+  provider's CA in `backend/db.js` for a stricter setup.
 
 ## Deployment
 
@@ -122,7 +151,7 @@ The app is split across three managed services:
 
 **Backend — Render Web Service:**
 1. New → Web Service → point at the repo, build/start commands `cd backend && npm install` / `cd backend && npm start`
-2. Environment variables: `DATABASE_URL` (Supabase's pooler connection string), `JWT_SECRET`, `CORS_ORIGIN` (the deployed frontend's origin), `PGSSL=true`
+2. Environment variables: `DATABASE_URL` (Supabase's pooler connection string), `JWT_SECRET` (required: the server refuses to start without it), `CORS_ORIGIN` (the deployed frontend's origin), `PGSSL=true`
 3. `npm start` runs `node migrate.js && node server.js`, so the schema is applied on every boot (idempotent — safe to leave permanently)
 
 **Frontend — Vercel:**
@@ -139,8 +168,8 @@ configured for the same reason.)
 
 ## Notes for extending it
 
-- `logs.logged_at` defaults to today but accepts a specific date, so a "log yesterday's
-  workout" feature is just a date picker away.
+- `logs.logged_at` defaults to today but accepts a specific date (up to 5 years back, never in
+  the future), so a "log yesterday's workout" feature is just a date picker away.
 - The overview endpoint's insight logic (this-week vs last-week average) is a good spot to
   extend with more comparisons — best day, longest streak, etc.
 - Repo is two independent npm projects (no shared root `package.json`) so each half can be
