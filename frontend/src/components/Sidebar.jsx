@@ -1,71 +1,82 @@
-import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { IconToday, IconGoals, IconSun, IconMoon, IconLogout } from "./Icons.jsx";
 
+// Desktop/tablet: a left rail. Phone: a slim top bar (brand, theme, log out) plus a
+// bottom tab bar, so navigation sits under the thumb instead of behind a hamburger.
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [open, setOpen] = useState(false);
+  const toLight = theme === "dark";
+  const themeLabel = toLight ? "Switch to light mode" : "Switch to dark mode";
+  const initial = (user?.name || "?").trim().charAt(0).toUpperCase();
+
+  const linkClass = ({ isActive }) => `nav-link ${isActive ? "is-active" : ""}`;
 
   return (
     <>
-      {/* Mobile-only top bar with hamburger toggle */}
-      <div className="mobile-topbar">
-        <button className="hamburger-btn" onClick={() => setOpen(true)} aria-label="Open menu">
-          <span />
-          <span />
-          <span />
-        </button>
-        <span className="mobile-mark">
-          <img src="/logo-mark.png" alt="" width="24" height="24" />
-          SINEW
+      <header className="mobile-topbar">
+        <span className="brand">
+          <img src="/logo-mark.png" alt="" width="26" height="26" />
+          <span className="brand-word">SINEW</span>
         </span>
-      </div>
-
-      {open && <div className="rail-backdrop" onClick={() => setOpen(false)} />}
-
-      <aside className={`rail ${open ? "is-open" : ""}`}>
-        <div className="rail-top">
-          <div className="rail-mark">
-            <img src="/logo-mark.png" alt="" width="28" height="28" />
-            SINEW
-          </div>
-          <button className="rail-close" onClick={() => setOpen(false)} aria-label="Close menu">
-            ✕
+        <div className="topbar-actions">
+          <button className="icon-btn" type="button" onClick={toggleTheme} aria-label={themeLabel}>
+            {toLight ? <IconSun /> : <IconMoon />}
+          </button>
+          <button className="icon-btn" type="button" onClick={logout} aria-label="Log out">
+            <IconLogout />
           </button>
         </div>
+      </header>
 
-        <nav className="rail-nav">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `rail-link ${isActive ? "is-active" : ""}`}
-            onClick={() => setOpen(false)}
-          >
+      <aside className="rail">
+        <span className="brand">
+          <img src="/logo-mark.png" alt="" width="30" height="30" />
+          <span className="brand-word">SINEW</span>
+        </span>
+
+        <nav className="rail-nav" aria-label="Main">
+          <NavLink to="/" end className={linkClass}>
+            <IconToday />
             Dashboard
           </NavLink>
-          <NavLink
-            to="/goals"
-            className={({ isActive }) => `rail-link ${isActive ? "is-active" : ""}`}
-            onClick={() => setOpen(false)}
-          >
+          <NavLink to="/goals" className={linkClass}>
+            <IconGoals />
             Goals
           </NavLink>
         </nav>
 
-        <button className="theme-toggle" onClick={toggleTheme}>
-          {theme === "dark" ? "☀ Light mode" : "🌙 Dark mode"}
-        </button>
-
-        <div className="rail-user">
-          <div className="rail-user-name">{user?.name}</div>
-          <div className="rail-user-email">{user?.email}</div>
+        <div className="rail-foot">
+          <button className="rail-theme" type="button" onClick={toggleTheme}>
+            {toLight ? <IconSun /> : <IconMoon />}
+            {toLight ? "Light mode" : "Dark mode"}
+          </button>
+          <div className="rail-user">
+            <span className="avatar" aria-hidden="true">{initial}</span>
+            <div className="rail-user-text">
+              <div className="rail-user-name">{user?.name}</div>
+              <div className="rail-user-email">{user?.email}</div>
+            </div>
+          </div>
+          <button className="btn-ghost rail-logout" type="button" onClick={logout}>
+            <IconLogout width="18" height="18" />
+            Log out
+          </button>
         </div>
-        <button className="btn-ghost" onClick={logout}>
-          Log out
-        </button>
       </aside>
+
+      <nav className="tabbar" aria-label="Main">
+        <NavLink to="/" end className={linkClass}>
+          <IconToday width="22" height="22" />
+          <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/goals" className={linkClass}>
+          <IconGoals width="22" height="22" />
+          <span>Goals</span>
+        </NavLink>
+      </nav>
     </>
   );
 }

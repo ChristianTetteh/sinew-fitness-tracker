@@ -6,7 +6,7 @@ export default function ErrorScreen({ message, onRetry }) {
         {message}
       </p>
       <button className="btn-primary" type="button" onClick={onRetry}>
-        Retry
+        Try again
       </button>
     </div>
   );
