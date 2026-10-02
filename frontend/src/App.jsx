@@ -6,11 +6,13 @@ import Signup from "./pages/Signup.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Goals from "./pages/Goals.jsx";
 import LoadingScreen from "./components/LoadingScreen.jsx";
+import ErrorScreen from "./components/ErrorScreen.jsx";
 import SplashIntro, { shouldShowIntro } from "./components/SplashIntro.jsx";
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, loadError, retryLoad } = useAuth();
   if (loading) return <LoadingScreen label="Checking your session…" />;
+  if (!user && loadError) return <ErrorScreen message={loadError} onRetry={retryLoad} />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

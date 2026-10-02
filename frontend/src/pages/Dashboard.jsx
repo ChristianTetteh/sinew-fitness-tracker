@@ -9,6 +9,8 @@ import WeeklyChart from "../components/WeeklyChart.jsx";
 import ScoreCard from "../components/ScoreCard.jsx";
 import RecentEntries from "../components/RecentEntries.jsx";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import ErrorScreen from "../components/ErrorScreen.jsx";
+import { METRIC_LABELS } from "../utils/metrics";
 
 const METRICS = ["walk", "water", "sleep"];
 
@@ -18,28 +20,36 @@ export default function Dashboard() {
   const [recentLogs, setRecentLogs] = useState([]);
   const [activeMetric, setActiveMetric] = useState("walk");
   const [loading, setLoading] = useState(true);
+  // { message, retry } for the visible error banner; null when everything is fine.
+  const [problem, setProblem] = useState(null);
 
   const refresh = useCallback(async () => {
-    const [overviewRes, logsRes] = await Promise.all([
-      api.get("/logs/summary/overview?days=7"),
-      api.get("/logs?days=14"),
-    ]);
-    setOverview(overviewRes.data);
-    setRecentLogs(logsRes.data.logs.slice(0, 10));
-    setLoading(false);
+    try {
+      const [overviewRes, logsRes] = await Promise.all([
+        api.get("/logs/summary/overview?days=7"),
+        api.get("/logs?days=14"),
+      ]);
+      setOverview(overviewRes.data);
+      setRecentLogs(logsRes.data.logs.slice(0, 10));
+      setProblem(null);
+    } catch (err) {
+      setProblem({
+        message: err.response?.data?.error || "Couldn't load your dashboard. Check your connection and try again.",
+        retry: refresh,
+      });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
+  // Log and edit rethrow so the form that triggered them can show the server's message
+  // (e.g. "over the daily cap") next to the input. The reload afterwards handles its own errors.
   async function handleLog(type, value) {
     await api.post("/logs", { type, value });
-    await refresh();
-  }
-
-  async function handleDelete(id) {
-    await api.delete(`/logs/${id}`);
     await refresh();
   }
 
@@ -48,7 +58,27 @@ export default function Dashboard() {
     await refresh();
   }
 
-  if (loading || !overview) return <LoadingScreen />;
+  async function handleDelete(id) {
+    try {
+      await api.delete(`/logs/${id}`);
+    } catch (err) {
+      setProblem({
+        message: err.response?.data?.error || "Couldn't remove that entry. Try again.",
+        retry: () => handleDelete(id),
+      });
+      return;
+    }
+    await refresh();
+  }
+
+  if (loading) return <LoadingScreen />;
+  if (!overview) {
+    const retry = () => {
+      setLoading(true);
+      refresh();
+    };
+    return <ErrorScreen message={problem?.message || "Couldn't load your dashboard."} onRetry={retry} />;
+  }
 
   const metricHistory = overview.history.filter((h) => h.type === activeMetric);
   const firstName = user?.name?.split(" ")[0] || "there";
@@ -63,6 +93,15 @@ export default function Dashboard() {
           <p className="main-sub">{fullDateLabel()}</p>
         </header>
 
+        {problem && (
+          <div className="error-banner" role="alert">
+            <span>{problem.message}</span>
+            <button className="btn-ghost" type="button" onClick={problem.retry}>
+              Retry
+            </button>
+          </div>
+        )}
+
         <ScoreCard score={overview.score} streak={overview.streak} insight={overview.insight} />
 
         <QuickLog onLog={handleLog} />
@@ -70,7 +109,7 @@ export default function Dashboard() {
         <h2 className="section-title">Today</h2>
         <section className="stat-grid">
           <StatCard
-            label="Steps"
+            label={METRIC_LABELS.walk}
             metric="walk"
             value={overview.today.walk || 0}
             unit="steps"
@@ -78,7 +117,7 @@ export default function Dashboard() {
             accent="#FF6B35"
           />
           <StatCard
-            label="Water"
+            label={METRIC_LABELS.water}
             metric="water"
             value={overview.today.water || 0}
             unit="ml"
@@ -86,7 +125,7 @@ export default function Dashboard() {
             accent="#2DD4BF"
           />
           <StatCard
-            label="Sleep"
+            label={METRIC_LABELS.sleep}
             metric="sleep"
             value={overview.today.sleep || 0}
             unit="hrs"
@@ -102,13 +141,14 @@ export default function Dashboard() {
               <button
                 key={m}
                 className={`metric-tab ${activeMetric === m ? "is-active" : ""}`}
+                aria-pressed={activeMetric === m}
                 onClick={() => setActiveMetric(m)}
               >
-                {m}
+                {METRIC_LABELS[m]}
               </button>
             ))}
           </div>
-          <WeeklyChart metric={activeMetric} data={metricHistory} />
+          <WeeklyChart metric={activeMetric} data={metricHistory} endDate={overview.as_of} />
         </section>
 
         <section className="recent-section">
