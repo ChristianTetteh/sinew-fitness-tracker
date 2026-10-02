@@ -41,6 +41,12 @@ describe("computeStreak", () => {
     expect(computeStreak(dates, "2026-01-10")).toBe(0);
   });
 
+  it("ignores entries dated in the future instead of mis-counting them", () => {
+    const dates = ["2026-01-12", "2026-01-11", "2026-01-10", "2026-01-09"];
+    expect(computeStreak(dates, "2026-01-10")).toBe(2);
+    expect(computeStreak(["2026-01-12"], "2026-01-10")).toBe(0);
+  });
+
   it("stops counting at the first gap in the date list", () => {
     const dates = ["2026-01-10", "2026-01-09", "2026-01-07"]; // gap between 09 and 07
     expect(computeStreak(dates, "2026-01-10")).toBe(2);
@@ -66,5 +72,20 @@ describe("computeInsight", () => {
   it("reports a decrease with the correct direction and magnitude", () => {
     const rows = [{ type: "sleep", this_week: 6, last_week: 8 }];
     expect(computeInsight(rows)).toMatch(/sleep is down 25%/);
+  });
+
+  it("never reports a change that rounds to 0%", () => {
+    const rows = [{ type: "walk", this_week: 5000, last_week: 5010 }]; // -0.2%
+    const text = computeInsight(rows);
+    expect(text).not.toMatch(/0%/);
+    expect(text).toMatch(/steady/);
+  });
+
+  it("skips a 0% metric in favour of one with a real change", () => {
+    const rows = [
+      { type: "walk", this_week: 5000, last_week: 5000 },
+      { type: "sleep", this_week: 9, last_week: 8 },
+    ];
+    expect(computeInsight(rows)).toMatch(/sleep is up 13%/);
   });
 });

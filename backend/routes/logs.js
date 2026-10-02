@@ -1,7 +1,9 @@
 const express = require("express");
 const pool = require("../db");
 const requireAuth = require("../middleware/authMiddleware");
-const { validateValue, validateDailyTotal } = require("../lib/validation");
+const asyncHandler = require("../lib/asyncHandler");
+const { withUserLock } = require("../lib/tx");
+const { validateValue, validateDailyTotal, validateLoggedAt, parseId, parseDays } = require("../lib/validation");
 const { computeScore, computeStreak, computeInsight } = require("../lib/scoring");
 
 const router = express.Router();
@@ -10,7 +12,7 @@ const VALID_TYPES = ["walk", "water", "sleep"];
 router.use(requireAuth);
 
 // Create a log entry
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const { type, value, logged_at } = req.body;
 
   if (!VALID_TYPES.includes(type)) {
@@ -20,46 +22,55 @@ router.post("/", async (req, res) => {
   if (error) {
     return res.status(400).json({ error });
   }
+  const { date, error: dateError } = validateLoggedAt(logged_at);
+  if (dateError) {
+    return res.status(400).json({ error: dateError });
+  }
 
   try {
-    // Cumulative check: even though this single entry is within bounds, it
-    // must not push the day's total (across all of that day's entries for
-    // this type) past the daily cap. Only applies to types with a daily cap
-    // (water, sleep) — walk has none, so this is a no-op for it.
-    const totalResult = await pool.query(
-      `SELECT COALESCE(SUM(value), 0)::float AS total
-       FROM logs
-       WHERE user_id = $1 AND type = $2 AND logged_at = COALESCE($3, CURRENT_DATE)`,
-      [req.userId, type, logged_at || null]
-    );
-    const dailyError = validateDailyTotal(type, totalResult.rows[0].total, numericValue).error;
-    if (dailyError) {
-      return res.status(400).json({ error: dailyError });
-    }
+    // Cumulative check: even though this single entry is within bounds, it must not
+    // push the day's total (across all of that day's entries for this type) past the
+    // daily cap. The per-user advisory lock makes check + insert atomic, so two
+    // concurrent requests can't both pass the check and jointly exceed the cap.
+    const outcome = await withUserLock(req.userId, async (client) => {
+      const totalResult = await client.query(
+        `SELECT COALESCE(SUM(value), 0)::float AS total
+         FROM logs
+         WHERE user_id = $1 AND type = $2 AND logged_at = COALESCE($3::date, CURRENT_DATE)`,
+        [req.userId, type, date]
+      );
+      const dailyError = validateDailyTotal(type, totalResult.rows[0].total, numericValue).error;
+      if (dailyError) return { status: 400, body: { error: dailyError } };
 
-    const result = await pool.query(
-      `INSERT INTO logs (user_id, type, value, logged_at)
-       VALUES ($1, $2, $3, COALESCE($4, CURRENT_DATE))
-       RETURNING id, type, value, logged_at`,
-      [req.userId, type, numericValue, logged_at || null]
-    );
-    res.status(201).json({ log: result.rows[0] });
+      const result = await client.query(
+        `INSERT INTO logs (user_id, type, value, logged_at)
+         VALUES ($1, $2, $3, COALESCE($4::date, CURRENT_DATE))
+         RETURNING id, type, value, logged_at`,
+        [req.userId, type, numericValue, date]
+      );
+      return { status: 201, body: { log: result.rows[0] } };
+    });
+    res.status(outcome.status).json(outcome.body);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not save that entry." });
   }
-});
+}));
 
 // List recent logs, optionally filtered by type, most recent first
-router.get("/", async (req, res) => {
-  const { type, days = 30 } = req.query;
-  const params = [req.userId, Number(days) || 30];
+router.get("/", asyncHandler(async (req, res) => {
+  const { type } = req.query;
+  const { days, error: daysError } = parseDays(req.query.days, 30);
+  if (daysError) {
+    return res.status(400).json({ error: daysError });
+  }
+  const params = [req.userId, days];
   let query = `
     SELECT id, type, value, logged_at
     FROM logs
-    WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ($2 || ' days')::interval
+    WHERE user_id = $1 AND logged_at > CURRENT_DATE - $2::int
   `;
-  if (type) {
+  if (type !== undefined) {
     if (!VALID_TYPES.includes(type)) {
       return res.status(400).json({ error: "Invalid type filter." });
     }
@@ -75,55 +86,61 @@ router.get("/", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Could not load entries." });
   }
-});
+}));
 
 // Edit an existing log entry's value (only if it belongs to the caller)
-router.put("/:id", async (req, res) => {
+router.put("/:id", asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ error: "Invalid entry id." });
+  }
   const { value } = req.body;
   try {
-    const existing = await pool.query(
-      "SELECT type, logged_at FROM logs WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.userId]
-    );
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ error: "Entry not found." });
-    }
-    const { type: existingType, logged_at: existingDate } = existing.rows[0];
-    const { numericValue, error } = validateValue(existingType, value);
-    if (error) {
-      return res.status(400).json({ error });
-    }
+    const outcome = await withUserLock(req.userId, async (client) => {
+      const existing = await client.query(
+        "SELECT type, logged_at FROM logs WHERE id = $1 AND user_id = $2",
+        [id, req.userId]
+      );
+      if (existing.rows.length === 0) return { status: 404, body: { error: "Entry not found." } };
 
-    // Same cumulative check as create, but excluding this entry's own
-    // current value from the existing total (it's about to be replaced).
-    const totalResult = await pool.query(
-      `SELECT COALESCE(SUM(value), 0)::float AS total
-       FROM logs
-       WHERE user_id = $1 AND type = $2 AND logged_at = $3 AND id != $4`,
-      [req.userId, existingType, existingDate, req.params.id]
-    );
-    const dailyError = validateDailyTotal(existingType, totalResult.rows[0].total, numericValue).error;
-    if (dailyError) {
-      return res.status(400).json({ error: dailyError });
-    }
+      const { type: existingType, logged_at: existingDate } = existing.rows[0];
+      const { numericValue, error } = validateValue(existingType, value);
+      if (error) return { status: 400, body: { error } };
 
-    const result = await pool.query(
-      "UPDATE logs SET value = $1 WHERE id = $2 AND user_id = $3 RETURNING id, type, value, logged_at",
-      [numericValue, req.params.id, req.userId]
-    );
-    res.json({ log: result.rows[0] });
+      // Same cumulative check as create, but excluding this entry's own
+      // current value from the existing total (it's about to be replaced).
+      const totalResult = await client.query(
+        `SELECT COALESCE(SUM(value), 0)::float AS total
+         FROM logs
+         WHERE user_id = $1 AND type = $2 AND logged_at = $3 AND id != $4`,
+        [req.userId, existingType, existingDate, id]
+      );
+      const dailyError = validateDailyTotal(existingType, totalResult.rows[0].total, numericValue).error;
+      if (dailyError) return { status: 400, body: { error: dailyError } };
+
+      const result = await client.query(
+        "UPDATE logs SET value = $1 WHERE id = $2 AND user_id = $3 RETURNING id, type, value, logged_at",
+        [numericValue, id, req.userId]
+      );
+      return { status: 200, body: { log: result.rows[0] } };
+    });
+    res.status(outcome.status).json(outcome.body);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not update that entry." });
   }
-});
+}));
 
 // Delete a log entry (only if it belongs to the caller)
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return res.status(400).json({ error: "Invalid entry id." });
+  }
   try {
     const result = await pool.query(
       "DELETE FROM logs WHERE id = $1 AND user_id = $2 RETURNING id",
-      [req.params.id, req.userId]
+      [id, req.userId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Entry not found." });
@@ -133,40 +150,15 @@ router.delete("/:id", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Could not delete that entry." });
   }
-});
-
-// Daily totals per type for the last N days, for the dashboard charts
-router.get("/summary/weekly", async (req, res) => {
-  const days = Number(req.query.days) || 7;
-  try {
-    const result = await pool.query(
-      `SELECT logged_at, type, SUM(value)::float AS total
-       FROM logs
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ($2 || ' days')::interval
-       GROUP BY logged_at, type
-       ORDER BY logged_at ASC`,
-      [req.userId, days]
-    );
-
-    const todayResult = await pool.query(
-      `SELECT type, SUM(value)::float AS total
-       FROM logs
-       WHERE user_id = $1 AND logged_at = CURRENT_DATE
-       GROUP BY type`,
-      [req.userId]
-    );
-
-    res.json({ history: result.rows, today: todayResult.rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not load summary." });
-  }
-});
+}));
 
 // One call that powers the dashboard: today's totals, goal-completion score,
 // logging streak, and a plain-language insight comparing this week to last week.
-router.get("/summary/overview", async (req, res) => {
-  const days = Number(req.query.days) || 7;
+router.get("/summary/overview", asyncHandler(async (req, res) => {
+  const { days, error: daysError } = parseDays(req.query.days, 7);
+  if (daysError) {
+    return res.status(400).json({ error: daysError });
+  }
   try {
     const userResult = await pool.query(
       `SELECT daily_water_goal_ml, daily_steps_goal, daily_sleep_goal_hours
@@ -178,7 +170,7 @@ router.get("/summary/overview", async (req, res) => {
     const historyResult = await pool.query(
       `SELECT logged_at, type, SUM(value)::float AS total
        FROM logs
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ($2 || ' days')::interval
+       WHERE user_id = $1 AND logged_at > CURRENT_DATE - $2::int AND logged_at <= CURRENT_DATE
        GROUP BY logged_at, type
        ORDER BY logged_at ASC`,
       [req.userId, days]
@@ -203,21 +195,28 @@ router.get("/summary/overview", async (req, res) => {
     // Streak: consecutive days (ending today or yesterday) with at least one entry.
     const streakDaysResult = await pool.query(
       `SELECT DISTINCT logged_at FROM logs
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - INTERVAL '90 days'
+       WHERE user_id = $1
        ORDER BY logged_at DESC`,
       [req.userId]
     );
-    const loggedDates = streakDaysResult.rows.map((r) => r.logged_at.toISOString().slice(0, 10));
+    const loggedDates = streakDaysResult.rows.map((r) => r.logged_at);
     const streak = computeStreak(loggedDates);
 
-    // Insight: compare this week's daily average per metric to the prior week's.
+    // Insight: compare the average *daily total* per metric over the last 7 days
+    // (today and the 6 days before) with the 7 days before that. Entries are summed
+    // per day first, so several small entries in one day aren't averaged as if each
+    // were a full day; days with no entries are not counted.
     const weekAvgResult = await pool.query(
       `SELECT
          type,
-         AVG(value) FILTER (WHERE logged_at >= CURRENT_DATE - INTERVAL '7 days') AS this_week,
-         AVG(value) FILTER (WHERE logged_at < CURRENT_DATE - INTERVAL '7 days' AND logged_at >= CURRENT_DATE - INTERVAL '14 days') AS last_week
-       FROM logs
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - INTERVAL '14 days'
+         AVG(total) FILTER (WHERE logged_at > CURRENT_DATE - 7) AS this_week,
+         AVG(total) FILTER (WHERE logged_at <= CURRENT_DATE - 7) AS last_week
+       FROM (
+         SELECT type, logged_at, SUM(value) AS total
+         FROM logs
+         WHERE user_id = $1 AND logged_at > CURRENT_DATE - 14 AND logged_at <= CURRENT_DATE
+         GROUP BY type, logged_at
+       ) AS daily
        GROUP BY type`,
       [req.userId]
     );
@@ -235,6 +234,6 @@ router.get("/summary/overview", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Could not load overview." });
   }
-});
+}));
 
 module.exports = router;

@@ -8,7 +8,9 @@ function computeScore(today, goals) {
 
 // loggedDates: array of "YYYY-MM-DD" strings, sorted most-recent-first.
 // todayStr: "YYYY-MM-DD", injectable for deterministic tests.
-function computeStreak(loggedDates, todayStr = new Date().toISOString().slice(0, 10)) {
+function computeStreak(allDates, todayStr = new Date().toISOString().slice(0, 10)) {
+  // Entries dated after today (bad data / clock skew) must not produce a negative gap.
+  const loggedDates = allDates.filter((d) => d <= todayStr);
   if (loggedDates.length === 0) return 0;
 
   const oneDayMs = 24 * 60 * 60 * 1000;
@@ -32,17 +34,20 @@ function computeStreak(loggedDates, todayStr = new Date().toISOString().slice(0,
 const INSIGHT_LABELS = { walk: "steps", water: "water intake", sleep: "sleep" };
 const DEFAULT_INSIGHT = "Keep logging daily to unlock personalized insights.";
 
-// rows: [{ type, this_week, last_week }] — this_week/last_week are daily averages, or null.
+// rows: [{ type, this_week, last_week }] — this_week/last_week are averages of per-day totals, or null.
 function computeInsight(rows) {
   let insight = DEFAULT_INSIGHT;
   let bestChange = 0;
+  let compared = false;
 
   rows.forEach((row) => {
     const thisWeek = Number(row.this_week) || 0;
     const lastWeek = Number(row.last_week) || 0;
     if (lastWeek > 0 && thisWeek > 0) {
+      compared = true;
       const change = ((thisWeek - lastWeek) / lastWeek) * 100;
-      if (Math.abs(change) > Math.abs(bestChange)) {
+      // Changes that round to 0% aren't news ("up 0%"), so they never win.
+      if (Math.round(Math.abs(change)) >= 1 && Math.abs(change) > Math.abs(bestChange)) {
         bestChange = change;
         const direction = change >= 0 ? "up" : "down";
         insight = `Your ${INSIGHT_LABELS[row.type]} is ${direction} ${Math.abs(Math.round(change))}% compared to last week.`;
@@ -50,6 +55,7 @@ function computeInsight(rows) {
     }
   });
 
+  if (compared && insight === DEFAULT_INSIGHT) return "Your daily averages are steady compared to last week.";
   return insight;
 }
 
