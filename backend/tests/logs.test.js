@@ -260,13 +260,14 @@ describe("GET /api/logs/summary/overview", () => {
 
   it("returns dashboard data with string dates and computes streak/insight", async () => {
     pool.query
-      .mockResolvedValueOnce({ rows: [{ daily_water_goal_ml: 2000, daily_steps_goal: 8000, daily_sleep_goal_hours: 8 }] })
+      .mockResolvedValueOnce({ rows: [{ daily_water_goal_ml: 2000, daily_steps_goal: 8000, daily_sleep_goal_hours: 8, today }] })
       .mockResolvedValueOnce({ rows: [{ logged_at: today, type: "walk", total: 4000 }] })
       .mockResolvedValueOnce({ rows: [{ type: "walk", total: 4000 }] })
       .mockResolvedValueOnce({ rows: [{ logged_at: today }] })
       .mockResolvedValueOnce({ rows: [{ type: "walk", this_week: 6000, last_week: 4000 }] });
     const res = await request(app).get("/api/logs/summary/overview").set(auth);
     expect(res.status).toBe(200);
+    expect(res.body.as_of).toBe(today);
     expect(res.body.streak).toBe(1);
     expect(res.body.score).toBe(17);
     expect(res.body.insight).toMatch(/steps is up 50%/);

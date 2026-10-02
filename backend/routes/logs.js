@@ -161,7 +161,7 @@ router.get("/summary/overview", asyncHandler(async (req, res) => {
   }
   try {
     const userResult = await pool.query(
-      `SELECT daily_water_goal_ml, daily_steps_goal, daily_sleep_goal_hours
+      `SELECT daily_water_goal_ml, daily_steps_goal, daily_sleep_goal_hours, CURRENT_DATE AS today
        FROM users WHERE id = $1`,
       [req.userId]
     );
@@ -200,7 +200,7 @@ router.get("/summary/overview", asyncHandler(async (req, res) => {
       [req.userId]
     );
     const loggedDates = streakDaysResult.rows.map((r) => r.logged_at);
-    const streak = computeStreak(loggedDates);
+    const streak = computeStreak(loggedDates, goals.today); // goals.today: the database's own date
 
     // Insight: compare the average *daily total* per metric over the last 7 days
     // (today and the 6 days before) with the 7 days before that. Entries are summed
@@ -223,6 +223,7 @@ router.get("/summary/overview", asyncHandler(async (req, res) => {
     const insight = computeInsight(weekAvgResult.rows);
 
     res.json({
+      as_of: goals.today, // the server's "today" (YYYY-MM-DD); the chart's 7-day window ends here
       today,
       goals: goalFor,
       history: historyResult.rows,

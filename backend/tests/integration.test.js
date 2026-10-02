@@ -195,6 +195,7 @@ describeDb("integration (real Postgres)", () => {
       const res = await request(app).get("/api/logs/summary/overview").set(auth());
       expect(res.status).toBe(200);
       expect(res.body.streak).toBe(100);
+      expect(res.body.as_of).toBe(await daysAgo(0));
       expect(res.body.today.water).toBe(250);
       expect(typeof res.body.goals.sleep).toBe("number");
       expect(res.body.history).toHaveLength(7);
