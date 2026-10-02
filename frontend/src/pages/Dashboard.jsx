@@ -8,8 +8,9 @@ import QuickLog from "../components/QuickLog.jsx";
 import WeeklyChart from "../components/WeeklyChart.jsx";
 import ScoreCard from "../components/ScoreCard.jsx";
 import RecentEntries from "../components/RecentEntries.jsx";
-import LoadingScreen from "../components/LoadingScreen.jsx";
+import DashboardSkeleton from "../components/DashboardSkeleton.jsx";
 import ErrorScreen from "../components/ErrorScreen.jsx";
+import { IconAlert } from "../components/Icons.jsx";
 import { METRIC_LABELS } from "../utils/metrics";
 
 const METRICS = ["walk", "water", "sleep"];
@@ -71,7 +72,7 @@ export default function Dashboard() {
     await refresh();
   }
 
-  if (loading) return <LoadingScreen />;
+  if (loading) return <DashboardSkeleton />;
   if (!overview) {
     const retry = () => {
       setLoading(true);
@@ -89,32 +90,35 @@ export default function Dashboard() {
 
       <main className="main">
         <header className="main-header">
-          <h1>Good to see you, {firstName}</h1>
+          <h1>Hi, {firstName}</h1>
           <p className="main-sub">{fullDateLabel()}</p>
         </header>
 
         {problem && (
           <div className="error-banner" role="alert">
-            <span>{problem.message}</span>
+            <IconAlert className="error-banner-icon" />
+            <span className="error-banner-text">{problem.message}</span>
             <button className="btn-ghost" type="button" onClick={problem.retry}>
-              Retry
+              Try again
             </button>
           </div>
         )}
 
         <ScoreCard score={overview.score} streak={overview.streak} insight={overview.insight} />
 
-        <QuickLog onLog={handleLog} />
+                <QuickLog onLog={handleLog} />
 
-        <h2 className="section-title">Today</h2>
-        <section className="stat-grid">
+
+        <section className="today-section" aria-labelledby="today-h">
+        <h2 className="section-title" id="today-h">Today against your goals</h2>
+        <div className="stat-grid">
           <StatCard
             label={METRIC_LABELS.walk}
             metric="walk"
             value={overview.today.walk || 0}
             unit="steps"
             goal={overview.goals.walk}
-            accent="#FF6B35"
+            accent="var(--c-walk)"
           />
           <StatCard
             label={METRIC_LABELS.water}
@@ -122,7 +126,7 @@ export default function Dashboard() {
             value={overview.today.water || 0}
             unit="ml"
             goal={overview.goals.water}
-            accent="#2DD4BF"
+            accent="var(--c-water)"
           />
           <StatCard
             label={METRIC_LABELS.sleep}
@@ -130,17 +134,18 @@ export default function Dashboard() {
             value={overview.today.sleep || 0}
             unit="hrs"
             goal={overview.goals.sleep}
-            accent="#C9A5FF"
+            accent="var(--c-sleep)"
           />
+        </div>
         </section>
 
         <section className="chart-section">
           <h2 className="section-title">This week</h2>
-          <div className="metric-tabs">
+          <div className="metric-tabs" role="group" aria-label="Metric to chart">
             {METRICS.map((m) => (
               <button
                 key={m}
-                className={`metric-tab ${activeMetric === m ? "is-active" : ""}`}
+                className={`metric-tab t-${m} ${activeMetric === m ? "is-active" : ""}`}
                 aria-pressed={activeMetric === m}
                 onClick={() => setActiveMetric(m)}
               >

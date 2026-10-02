@@ -46,13 +46,14 @@ export default function QuickLog({ onLog }) {
   }
 
   return (
-    <form className="quick-log" onSubmit={handleSubmit}>
-      <div className="quick-log-tabs">
+    <form className="quick-log" id="quick-log" onSubmit={handleSubmit} aria-label="Log an entry">
+      <h2 className="quick-log-title">Log an entry</h2>
+      <div className="quick-log-tabs" role="group" aria-label="What to log">
         {TYPES.map((t) => (
           <button
             type="button"
             key={t.key}
-            className={`quick-log-tab ${active === t.key ? "is-active" : ""}`}
+            className={`quick-log-tab t-${t.key} ${active === t.key ? "is-active" : ""}`}
             aria-pressed={active === t.key}
             onClick={() => switchType(t.key)}
           >
@@ -72,11 +73,11 @@ export default function QuickLog({ onLog }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
         />
-        <span className="quick-log-unit">{activeType.unit}</span>
-        <button className="btn-primary" type="submit" disabled={busy}>
-          {busy ? "Logging…" : "Log it"}
-        </button>
+        <span className="quick-log-unit" aria-hidden="true">{activeType.unit}</span>
       </div>
+      <button className="btn-primary btn-block" type="submit" disabled={busy}>
+        {busy ? "Logging…" : `Log ${activeType.label.toLowerCase()}`}
+      </button>
       {error && <p className="quick-log-error" role="alert">{error}</p>}
     </form>
   );

@@ -57,7 +57,15 @@ export default function RecentEntries({ logs, onDelete, onEdit }) {
   }
 
   if (logs.length === 0) {
-    return <p className="recent-empty">Nothing logged yet — add your first entry above.</p>;
+    return (
+      <div className="empty-state">
+        <p className="empty-title">No entries yet</p>
+        <p className="empty-text">Log steps, water or sleep and they will show up here, newest first.</p>
+        <a className="btn-ghost empty-action" href="#quick-log">
+          Log your first entry
+        </a>
+      </div>
+    );
   }
 
   const groups = groupByDay(logs);
@@ -66,14 +74,17 @@ export default function RecentEntries({ logs, onDelete, onEdit }) {
     <div className="recent-groups">
       {groups.map((group) => (
         <div key={group.key} className="recent-group">
-          <div className="recent-group-label">{group.label}</div>
+          <h3 className="recent-group-label">{group.label}</h3>
           <ul className="recent-list">
             {group.entries.map((log) => {
               const name = METRIC_LABELS[log.type];
               const summary = `${name} entry, ${log.value.toLocaleString()} ${METRIC_UNITS[log.type]}, ${group.label}`;
               return (
-                <li key={log.id} className="recent-item">
-                  <span className={`recent-dot dot-${log.type}`} />
+                <li
+                  key={log.id}
+                  className={`recent-item ${editingId === log.id ? "is-editing" : ""} ${confirmingId === log.id ? "is-confirming" : ""}`}
+                >
+                  <span className={`recent-dot dot-${log.type}`} aria-hidden="true" />
                   <span className="recent-type">{name}</span>
                   {editingId === log.id ? (
                     <>
@@ -81,20 +92,22 @@ export default function RecentEntries({ logs, onDelete, onEdit }) {
                         className="recent-edit-input"
                         type="number"
                         step="any"
+                        inputMode="decimal"
                         value={editValue}
                         aria-label={`New value for ${summary}`}
                         onChange={(e) => setEditValue(e.target.value)}
                         autoFocus
                       />
                       <button
-                        className="recent-action"
+                        type="button"
+                        className="recent-action recent-save"
                         onClick={() => saveEdit(log)}
                         disabled={savingId === log.id}
                         aria-label={`Save ${summary}`}
                       >
                         {savingId === log.id ? "Saving…" : "Save"}
                       </button>
-                      <button className="recent-action" onClick={cancelEdit} aria-label={`Cancel editing ${summary}`}>
+                      <button className="recent-action" type="button" onClick={cancelEdit} aria-label={`Cancel editing ${summary}`}>
                         Cancel
                       </button>
                       {error.id === log.id && (
@@ -105,7 +118,7 @@ export default function RecentEntries({ logs, onDelete, onEdit }) {
                     </>
                   ) : confirmingId === log.id ? (
                     <>
-                      <span className="recent-value" role="alert">
+                      <span className="recent-value recent-confirm-text" role="alert">
                         Remove this entry?
                       </span>
                       <button
@@ -127,7 +140,8 @@ export default function RecentEntries({ logs, onDelete, onEdit }) {
                   ) : (
                     <>
                       <span className="recent-value">
-                        {log.value.toLocaleString()} {METRIC_UNITS[log.type]}
+                        <span className="recent-num">{log.value.toLocaleString()}</span>{" "}
+                        <span className="recent-unit">{METRIC_UNITS[log.type]}</span>
                       </span>
                       <button className="recent-action" onClick={() => startEdit(log)} aria-label={`Edit ${summary}`}>
                         Edit
