@@ -74,8 +74,8 @@ export default function Goals() {
             />
           </label>
 
-          {error && <p className="auth-error">{error}</p>}
-          {saved && <p className="goals-saved">Goals updated ✓</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          {saved && <p className="goals-saved" role="status">Goals updated ✓</p>}
 
           <button className="btn-primary" type="submit" disabled={busy}>
             {busy ? "Saving…" : "Save goals"}

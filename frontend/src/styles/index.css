@@ -53,6 +53,25 @@
 
 * { box-sizing: border-box; }
 
+/* Keyboard focus ring for everything interactive (mouse clicks don't trigger it). */
+:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 html, body, #root { min-height: 100%; }
 html, body { overflow-x: hidden; }
 
@@ -148,7 +167,6 @@ button:active { transform: scale(0.97); }
   padding: 11px 12px;
   font-size: 15px;
   color: var(--text);
-  outline: none;
 }
 
 .auth-form input:focus {
@@ -347,7 +365,6 @@ button:active { transform: scale(0.97); }
   border-radius: 8px;
   padding: 11px 12px;
   font-size: 15px;
-  outline: none;
 }
 .quick-log-input-row input:focus { border-color: var(--ember); }
 
@@ -820,6 +837,26 @@ button:active { transform: scale(0.97); }
   margin: 8px 0 0;
 }
 
+/* ---------- Load / save errors ---------- */
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--ember);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: var(--fs-base);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.error-screen-text { color: var(--text); margin: 0; text-align: center; padding: 0 var(--sp-4); }
+
+.recent-error { flex-basis: 100%; color: var(--ember); font-size: 12px; margin: 4px 0 0; }
+
 /* ---------- Grouped recent entries ---------- */
 
 .recent-groups { margin-top: 12px; }
@@ -886,7 +923,6 @@ button:active { transform: scale(0.97); }
   padding: 10px 12px;
   font-size: 15px;
   color: var(--text);
-  outline: none;
 }
 
 .goals-field input:focus { border-color: var(--ember); }

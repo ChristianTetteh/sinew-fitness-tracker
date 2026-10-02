@@ -35,7 +35,7 @@ export default function ScoreCard({ score, streak, insight }) {
           <div className="streak-chip">
             <span className="streak-flame" aria-hidden="true">🔥</span>
             <span className="streak-value">{streak}</span>
-            <span className="streak-label">{streak === 1 ? "day streak" : "day streak"}</span>
+            <span className="streak-label">day streak</span>
           </div>
           <div className="insight-chip">
             <span className="insight-label">Insight</span>

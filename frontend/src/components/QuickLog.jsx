@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { METRIC_LABELS } from "../utils/metrics";
 
 const TYPES = [
-  { key: "walk", label: "Walk", unit: "steps", placeholder: "e.g. 4500", min: 1, max: 50000 },
-  { key: "water", label: "Water", unit: "ml", placeholder: "e.g. 500", min: 1, max: 10000 },
-  { key: "sleep", label: "Sleep", unit: "hours", placeholder: "e.g. 7.5", min: 0.25, max: 24 },
+  { key: "walk", label: METRIC_LABELS.walk, unit: "steps", placeholder: "e.g. 4500", min: 1, max: 50000 },
+  { key: "water", label: METRIC_LABELS.water, unit: "ml", placeholder: "e.g. 500", min: 1, max: 10000 },
+  { key: "sleep", label: METRIC_LABELS.sleep, unit: "hours", placeholder: "e.g. 7.5", min: 0.25, max: 24 },
 ];
 
 export default function QuickLog({ onLog }) {
@@ -52,6 +53,7 @@ export default function QuickLog({ onLog }) {
             type="button"
             key={t.key}
             className={`quick-log-tab ${active === t.key ? "is-active" : ""}`}
+            aria-pressed={active === t.key}
             onClick={() => switchType(t.key)}
           >
             {t.label}
@@ -65,6 +67,7 @@ export default function QuickLog({ onLog }) {
           min={activeType.min}
           max={activeType.max}
           inputMode="decimal"
+          aria-label={`${activeType.label} amount in ${activeType.unit}`}
           placeholder={activeType.placeholder}
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -74,7 +77,7 @@ export default function QuickLog({ onLog }) {
           {busy ? "Logging…" : "Log it"}
         </button>
       </div>
-      {error && <p className="quick-log-error">{error}</p>}
+      {error && <p className="quick-log-error" role="alert">{error}</p>}
     </form>
   );
 }

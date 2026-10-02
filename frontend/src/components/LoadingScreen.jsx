@@ -4,7 +4,7 @@
 // ambiguity across browsers.
 export default function LoadingScreen({ label = "Loading Sinew…" }) {
   return (
-    <div className="page-loading">
+    <div className="page-loading" role="status" aria-live="polite">
       <svg className="loader-rig" viewBox="0 0 160 170" width="130" height="138" aria-hidden="true">
         {/* shoulder + upper arm (fixed) */}
         <line x1="50" y1="30" x2="50" y2="82" stroke="var(--muted)" strokeWidth="11" strokeLinecap="round" />

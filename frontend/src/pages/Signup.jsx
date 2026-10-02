@@ -66,7 +66,7 @@ export default function Signup() {
               placeholder="At least 8 characters"
             />
           </label>
-          {error && <p className="auth-error">{error}</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
           <button className="btn-primary" type="submit" disabled={busy}>
             {busy ? "Creating account…" : "Create account"}
           </button>

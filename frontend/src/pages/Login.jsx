@@ -54,7 +54,7 @@ export default function Login() {
               placeholder="••••••••"
             />
           </label>
-          {error && <p className="auth-error">{error}</p>}
+          {error && <p className="auth-error" role="alert">{error}</p>}
           <button className="btn-primary" type="submit" disabled={busy}>
             {busy ? "Logging in…" : "Log in"}
           </button>
