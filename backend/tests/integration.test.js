@@ -187,7 +187,7 @@ describeDb("integration (real Postgres)", () => {
 
       const res = await request(app).get("/api/logs/summary/overview").set(auth());
       expect(res.status).toBe(200);
-      expect(res.body.insight).toBe("Your steps is up 100% compared to last week.");
+      expect(res.body.insight).toBe("Your step count is up 100% compared to last week.");
     });
 
     it("returns numeric values, string dates, a 7-day history and a streak past 90 days", async () => {

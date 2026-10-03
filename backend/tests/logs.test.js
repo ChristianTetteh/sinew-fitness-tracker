@@ -270,7 +270,7 @@ describe("GET /api/logs/summary/overview", () => {
     expect(res.body.as_of).toBe(today);
     expect(res.body.streak).toBe(1);
     expect(res.body.score).toBe(17);
-    expect(res.body.insight).toMatch(/steps is up 50%/);
+    expect(res.body.insight).toMatch(/step count is up 50%/);
     expect(res.body.history[0].logged_at).toBe(today);
   });
 

@@ -31,7 +31,7 @@ function computeStreak(allDates, todayStr = new Date().toISOString().slice(0, 10
   return streak;
 }
 
-const INSIGHT_LABELS = { walk: "steps", water: "water intake", sleep: "sleep" };
+const INSIGHT_LABELS = { walk: "step count", water: "water intake", sleep: "sleep" };
 const DEFAULT_INSIGHT = "Keep logging daily to unlock personalized insights.";
 
 // rows: [{ type, this_week, last_week }] — this_week/last_week are averages of per-day totals, or null.
