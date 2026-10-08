@@ -1,4 +1,5 @@
 # Sinew — track. understand. improve.
+**Built by Christian Tetteh a full stack developer intern at Career Ghana**
 
 A full-stack fitness tracker built for the Full Stack Developer intern task ("Fitness
 Tracking Web App"), then taken well past the minimum brief: **React + Node/Express +
